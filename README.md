@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
@@ -70,15 +70,7 @@ firebase login
 firebase deploy --project resturent-6210f --only firestore:rules,firestore:indexes
 ```
 
-The Spark-plan administrator is identified by the fixed Firebase Auth UID
-`op2EtvYEBkb6yatyZFeIZ3IAdFC2` and verified email `admindashboard@gmail.com`.
-The UID must belong to that account in this exact Firebase project. The app
-does not create the account, change its password, or grant admin based on an
-email-only client check. In Firebase Console, create or confirm the existing
-Authentication user, verify the email, and compare its UID with the configured
-UID before deploying rules. If the UID differs, stop and update both
-`src/firebase/authorization.ts` and `firestore.rules` to the correct verified
-UID before deployment.
+**Admin setup:** Configure the designated administrator in Firebase Authentication. Verify the account and ensure its UID matches the administrator identity configured in the application authorization logic and Firestore security rules before deployment. Do not publish administrator credentials or private keys in the repository.
 
 The admin can approve/reject manager applications through a Firestore
 transaction. Approval creates `managerRoles/{uid}` with role `manager`;
@@ -116,3 +108,4 @@ and the dashboard reports order values rather than amounts collected.
 Firestore security rules do not provide transactional table-overlap checks on
 Spark. Manager reservation status updates work, but assigning tables with
 guaranteed conflict prevention is unsupported without a trusted backend.
+
