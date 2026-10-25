@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "User profile document storing basic account info",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "phoneNumber": { "type": "string", "maxLength": 30 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "foodItems": {
+      "title": "Food Item",
+      "description": "Restaurant menu food or beverage item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "price": { "type": "number" },
+        "category": { "type": "string", "maxLength": 60 },
+        "image": { "type": "string", "maxLength": 500 },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "prepTime": { "type": "string", "maxLength": 30 },
+        "calories": { "type": "number" },
+        "isChefSpecial": { "type": "boolean" },
+        "isPopular": { "type": "boolean" },
+        "dietary": { "type": "array" },
+        "spicyLevel": { "type": "number" },
+        "ingredients": { "type": "array" }
+      },
+      "required": ["name", "price", "category"]
+    },
+    "reservations": {
+      "title": "Table Reservation",
+      "description": "Dining table reservation at the restaurant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerEmail": { "type": "string", "maxLength": 128 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "date": { "type": "string", "maxLength": 20 },
+        "time": { "type": "string", "maxLength": 20 },
+        "guests": { "type": "number" },
+        "seatingArea": { "type": "string", "maxLength": 50 },
+        "specialRequests": { "type": "string", "maxLength": 300 },
+        "occasion": { "type": "string", "maxLength": 50 },
+        "bookingReference": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["confirmed", "seated", "completed", "cancelled"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["customerName", "customerEmail", "customerPhone", "date", "time", "guests", "seatingArea", "status"]
+    },
+    "orders": {
+      "title": "Food Order",
+      "description": "Customer food order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerEmail": { "type": "string", "maxLength": 128 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "tax": { "type": "number" },
+        "total": { "type": "number" },
+        "orderType": { "type": "string", "enum": ["dine-in", "takeout", "delivery"] },
+        "tableNumber": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["pending", "preparing", "ready", "delivered", "cancelled"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["customerName", "items", "total", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile records containing account data"
+    },
+    "/foodItems/{itemId}": {
+      "schema": "foodItems",
+      "description": "Restaurant menu food and drink catalog items"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "reservations",
+      "description": "Table bookings placed by registered or guest diners"
+    },
+    "/orders/{orderId}": {
+      "schema": "orders",
+      "description": "Food orders placed by customers"
+    }
+  }
+}

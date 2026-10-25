@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Savoria</string>
+    <string name="title_activity_main">Savoria</string>
+    <string name="package_name">com.savoria.restaurant</string>
+    <string name="custom_url_scheme">com.savoria.restaurant</string>
+</resources>

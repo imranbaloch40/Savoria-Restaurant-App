@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Savoria",
+    "slug": "savoria-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.savoria.app",
+      "usesCleartextTraffic": true
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}

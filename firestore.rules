@@ -1,0 +1,274 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.uid == 'op2EtvYEBkb6yatyZFeIZ3IAdFC2'
+        && request.auth.token.email == 'admindashboard@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function isDesignatedManager() {
+      return isSignedIn()
+        && request.auth.uid == 'ym0RGabzVLN1GiS7Iyp9uijFKxz2';
+    }
+
+    function hasManagerRecord() {
+      return isDesignatedManager()
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/managerRoles/$(request.auth.uid))
+          && get(/databases/$(database)/documents/managerRoles/$(request.auth.uid)).data.role == 'manager'
+          && get(/databases/$(database)/documents/managerRoles/$(request.auth.uid)).data.grantedBy == 'op2EtvYEBkb6yatyZFeIZ3IAdFC2'
+          && get(/databases/$(database)/documents/managerRoles/$(request.auth.uid)).data.grantedAt is string
+        );
+    }
+
+    function isManager() {
+      return isAdmin() || hasManagerRecord();
+    }
+
+    function isValidMenuItem(data) {
+      return data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 120
+        && data.description is string
+        && data.price is number
+        && data.price >= 0
+        && data.category in ['starters', 'mains', 'italian', 'grill', 'asian', 'desserts', 'beverages']
+        && data.image is string
+        && (!data.keys().hasAny(['available']) || data.available is bool);
+    }
+
+    function isValidManagerApplication(data, userId) {
+      return data.uid == userId
+        && data.fullName is string
+        && data.fullName.size() > 0
+        && data.fullName.size() <= 100
+        && data.email is string
+        && data.phoneNumber is string
+        && data.phoneNumber.matches('^[+]?[0-9 ()().-]{7,30}$')
+        && data.restaurantDetails is string
+        && data.restaurantDetails.size() <= 500
+        && data.status == 'pending'
+        && data.createdAt is string
+        && data.keys().hasOnly([
+          'uid', 'fullName', 'email', 'phoneNumber',
+          'restaurantDetails', 'status', 'createdAt'
+        ]);
+    }
+
+    function isAllowedOrderTransition(orderType, current, next) {
+      return (orderType == 'delivery' && (
+          (current == 'pending' && next in ['confirmed', 'cancelled'])
+          || (current == 'confirmed' && next in ['preparing', 'cancelled'])
+          || (current == 'preparing' && next in ['ready-for-dispatch', 'cancelled'])
+          || (current in ['ready', 'ready-for-dispatch'] && next in ['on-the-way', 'cancelled'])
+          || (current == 'on-the-way' && next == 'delivered')
+        ))
+        || (orderType == 'takeout' && (
+          (current == 'pending' && next in ['confirmed', 'cancelled'])
+          || (current == 'confirmed' && next in ['preparing', 'cancelled'])
+          || (current == 'preparing' && next in ['ready-for-pickup', 'cancelled'])
+          || (current in ['ready', 'ready-for-pickup'] && next == 'picked-up')
+        ))
+        || (orderType == 'dine-in' && (
+          (current == 'pending' && next in ['confirmed', 'cancelled'])
+          || (current == 'confirmed' && next in ['preparing', 'cancelled'])
+          || (current == 'preparing' && next in ['ready-to-serve', 'cancelled'])
+          || (current in ['ready', 'ready-to-serve'] && next == 'served')
+          || (current == 'served' && next == 'completed')
+        ));
+    }
+
+    function isAllowedReservationTransition(current, next) {
+      return (current == 'pending' && next in ['confirmed', 'cancelled'])
+        || (current == 'confirmed' && next in ['seated', 'cancelled'])
+        || (current == 'seated' && next in ['completed', 'cancelled']);
+    }
+
+    function hasManagerStatusHistory(previous, updated, status) {
+      return updated.statusHistory is list
+        && updated.statusHistory.size() == previous.get('statusHistory', []).size() + 1
+        && updated.statusHistory[updated.statusHistory.size() - 1].status == status
+        && updated.statusHistory[updated.statusHistory.size() - 1].changedBy == request.auth.uid
+        && updated.statusHistory[updated.statusHistory.size() - 1].changedAt == updated.updatedAt;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 128
+        && request.resource.data.keys().hasOnly([
+          'uid', 'userId', 'email', 'displayName', 'phoneNumber',
+          'deliveryAddress', 'favoriteFoodIds', 'createdAt', 'updatedAt'
+        ]);
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'phoneNumber', 'deliveryAddress', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /foodItems/{itemId} {
+      allow read: if true;
+      allow create, update: if isManager() && isValidMenuItem(request.resource.data);
+      allow delete: if isManager();
+    }
+
+    match /managerRoles/{userId} {
+      allow get: if isAdmin() || isOwner(userId);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && userId != 'op2EtvYEBkb6yatyZFeIZ3IAdFC2'
+        && request.resource.data.role == 'manager'
+        && request.resource.data.grantedBy == request.auth.uid
+        && request.resource.data.grantedAt is string
+        && request.resource.data.keys().hasOnly(['role', 'grantedBy', 'grantedAt']);
+      allow delete: if isAdmin() && userId != 'op2EtvYEBkb6yatyZFeIZ3IAdFC2';
+    }
+
+    match /menuSettings/{settingId} {
+      allow get: if settingId == 'default';
+      allow list: if false;
+      allow create, update: if isManager() && settingId == 'default';
+      allow delete: if false;
+    }
+
+    match /reservations/{reservationId} {
+      allow create: if request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.customerName.size() <= 100
+        && request.resource.data.customerPhone is string
+        && request.resource.data.customerPhone.size() <= 30
+        && request.resource.data.date is string
+        && request.resource.data.time is string
+        && request.resource.data.guests is number
+        && request.resource.data.guests >= 1
+        && request.resource.data.guests <= 20
+        && request.resource.data.seatingArea is string
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'id', 'userId', 'customerName', 'customerEmail', 'customerPhone',
+          'date', 'time', 'guests', 'seatingArea', 'occasion',
+          'specialRequests', 'bookingReference', 'status', 'createdAt', 'timestamp'
+        ])
+        && (
+          (isSignedIn() && isOwner(request.resource.data.userId)) ||
+          (!isSignedIn() && request.resource.data.userId == null)
+        );
+
+      allow get, list: if isManager() || isOwner(resource.data.get('userId', null));
+      allow update: if (
+          isOwner(resource.data.get('userId', null))
+          && resource.data.status in ['pending', 'confirmed']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status == 'cancelled'
+        ) || (
+          isManager()
+          && isAllowedReservationTransition(resource.data.status, request.resource.data.status)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'updatedBy', 'statusHistory'
+          ])
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedBy == request.auth.uid
+          && hasManagerStatusHistory(resource.data, request.resource.data, request.resource.data.status)
+        );
+      allow delete: if false;
+    }
+
+    match /orders/{orderId} {
+      allow create: if isOwner(request.resource.data.userId)
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.customerName.size() <= 100
+        && request.resource.data.customerPhone is string
+        && request.resource.data.customerPhone.matches('^[+]?[0-9 ()().-]{7,30}$')
+        && request.resource.data.deliveryAddress is map
+        && request.resource.data.deliveryAddress.country is string
+        && request.resource.data.deliveryAddress.country.size() > 0
+        && request.resource.data.deliveryAddress.city is string
+        && request.resource.data.deliveryAddress.city.size() > 0
+        && request.resource.data.deliveryAddress.area is string
+        && request.resource.data.deliveryAddress.area.size() > 0
+        && request.resource.data.deliveryAddress.houseNumber is string
+        && request.resource.data.deliveryAddress.houseNumber.size() > 0
+        && request.resource.data.deliveryAddress.streetAddress is string
+        && request.resource.data.deliveryAddress.streetAddress.size() > 0
+        && request.resource.data.customerEmail is string
+        && request.resource.data.orderType in ['dine-in', 'takeout', 'delivery']
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 50
+        && request.resource.data.subtotal is number
+        && request.resource.data.subtotal >= 0
+        && request.resource.data.tax is number
+        && request.resource.data.tax >= 0
+        && request.resource.data.tip is number
+        && request.resource.data.tip >= 0
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is string
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0
+        && request.resource.data.total == request.resource.data.subtotal
+          + request.resource.data.tax + request.resource.data.tip
+        && request.resource.data.keys().hasOnly([
+          'id', 'userId', 'customerName', 'customerEmail', 'customerPhone',
+          'deliveryAddress', 'items', 'orderType', 'tableNumber',
+          'subtotal', 'tax', 'tip', 'total', 'specialInstructions',
+          'status', 'createdAt'
+        ]);
+      allow get, list: if isManager() || isOwner(resource.data.get('userId', null));
+      allow update: if isManager()
+        && isAllowedOrderTransition(resource.data.orderType, resource.data.status, request.resource.data.status)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'statusHistory'
+        ])
+        && request.resource.data.updatedAt is string
+        && hasManagerStatusHistory(resource.data, request.resource.data, request.resource.data.status);
+      allow delete: if false;
+    }
+
+    match /managerApplications/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidManagerApplication(request.resource.data, userId);
+      allow update: if (
+          isAdmin()
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['approved', 'rejected']
+          && request.resource.data.reviewedBy == request.auth.uid
+          && request.resource.data.reviewedAt is string
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'reviewedAt', 'reviewedBy'
+          ])
+        ) || (
+          isOwner(userId)
+          && resource.data.status == 'rejected'
+          && isValidManagerApplication(request.resource.data, userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName', 'email', 'phoneNumber', 'restaurantDetails',
+            'status', 'createdAt', 'reviewedAt', 'reviewedBy'
+          ])
+        );
+      allow delete: if false;
+    }
+  }
+}

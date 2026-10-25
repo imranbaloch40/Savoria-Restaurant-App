@@ -1,0 +1,6 @@
+{
+  "name": "Savoria - Restaurant & Table Booking",
+  "description": "Full-stack restaurant application with menu filtering, food search, table reservations, and Firebase authentication & Firestore database.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
